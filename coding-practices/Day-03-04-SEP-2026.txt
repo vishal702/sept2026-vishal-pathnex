@@ -1,0 +1,85 @@
+Day-1 Task (L1)
+
+---
+- name: Install Nginx on Pathnex server
+  hosts: all
+  become: yes
+
+  tasks:
+    - name: Install nginx
+      apt:
+        name: nginx
+        state: present
+
+---------------------------
+
+provider "aws" {
+  region = "ap-south-1"
+}
+
+resource "aws_instance" "myec2" {
+  ami           = "ami-askhkdhsd12r42163"
+  instance_type = "c5.xlarge"
+
+  tags = {
+    Name = "Challbazz-ec2"
+  }
+}
+
+
+---------------------------------
+
+apiVersion: v1
+kind: Pod
+metadata:
+     name: challbazz-pod
+spec:
+  containers:
+    - name: web
+        image: nginx:latest
+        ports:
+        - containerPort: 80
+
+
+-------------------------------------
+
+#!/bin/bash
+
+echo "Date is: $(date)"
+echo "Hostname is: $(hostname)"
+
+-------------------------------------
+
+
+pipeline {
+    agent any
+
+    stages {
+        stage('Checkout') {
+            steps {
+                git url: 'https://github.com/node-todo/three_tier_application.git' , branch: 'main'  
+            }
+        }
+
+        stage('List Files') {
+            steps {
+                sh 'ls -la'
+            }
+        }
+    }
+}
+
+
+-------------------------------------------
+
+#bhaiya isme ma abhi confident nahi hu islea maine ye ai se help lia ha
+
+stages:
+  - checkout
+
+git-checkout:
+  stage: checkout
+  script:
+    - git clone https://github.com/node-todo/three_tier_application.git
+    - cd three_tier_application
+    - ls -la
