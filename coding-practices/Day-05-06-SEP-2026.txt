@@ -1,0 +1,42 @@
+L2-Practice Day-03
+
+---
+- name: Install and start Apache
+  hosts: all
+  become: yes
+
+  tasks:
+    - name: Install apache
+      yum:
+        name: httpd
+        state: present
+
+    - name: Start apache
+      service:
+        name: httpd
+        state: started
+        enabled: yes
+
+
+------------------------------------------------------------
+
+provider "aws" {
+  region = "ap-south-1"
+}
+
+resource "aws_instance" "myinstance" {
+  ami           = "ami-kjsgksag212345"
+  instance_type = "t3.medium"
+
+  tags = {
+    Name = "chaluinstanceha"
+  }
+}
+
+
+------------------------------------------------------------
+
+FROM nginx:latest
+
+
+COPY index.html /user/mydata/nginx/html/index.html
