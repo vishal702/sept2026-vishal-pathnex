@@ -1,0 +1,17 @@
+Todays Task
+
+2 Hour - Morning session of GIT and GITHUB via Youtube
+1 Hour - Docker(Volume) Revision
+1 hour - L1 practice (Day-05)
+1 hour - L2 practice (Day-05)
+1 hour - (Attend evening session speak + take notes from other speech)
+Watch August Batch Linux class day-1
+
+Tomorrows Task
+
+2 Hour - Morning session of via Youtube
+1 Hour - Docker(Compose) Revision
+1 hour - L1 practice (Day-06)
+1 hour - L2 practice (Day-06)
+1 hour - (Attend evening session speak + take notes from other speech)
+Watch August Batch Linux class day-2
