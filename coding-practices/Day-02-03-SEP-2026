@@ -1,1 +1,216 @@
 
+Devops L1-practice
+
+---
+- name: Install and start Nginx
+  hosts: all
+  become: yes
+
+  tasks:
+    - name: Install nginx
+      yum:
+        name: nginx
+        state: present
+
+    - name: Enable nginx
+      service:
+        name: nginx
+        state: started
+        enabled: yes
+
+
+--------------------------------------------------
+
+provider "aws" {
+  region = "ap-south-1"
+}
+
+resource "aws_instance" "myinstance" {
+  ami           = "ami-shlskfh2qw55qw7"
+  instance_type = "r5.2xlarge"
+
+  tags = {
+    Name        = "Challbazz_server"
+    Environment = "My_Life"
+  }
+}
+
+
+----------------------------------------------------
+
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+      name: Challbazz-deployment
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: challbazz-app
+    template:
+     metadata:
+      labels:
+        app: challbazz-app
+    spec:
+      containers:
+        - name: app
+          image: nginx
+            ports:
+              containerPort: 80
+
+
+-------------------------------------------------------------
+
+#!/bin/bash 
+df -h
+
+
+--------------------------------------------------------=---
+
+pipeline {
+    agent any
+
+    tools {
+        maven 'Maven-3.8.1'
+        jdk 'JDK-17'
+    }
+
+    stages {
+        stage("Checkout") {
+            steps {
+                git url: "https://github.com/Pathnex/sample-java-app.git"
+            }
+        }
+
+        stage("Compile") {
+            steps {
+                sh "mvn clean compile"
+            }
+        }
+
+        stage('Package') {
+            steps {
+                sh 'mvn package'
+            }
+        }
+    }
+
+
+-------------------------------------------------------------
+
+git lab taken help from ai
+
+stages:
+  - build
+  - test
+  - package
+
+maven-build:
+  stage: build
+  image: maven:3.8.1-jdk-17
+  script:
+    - git clone https://github.com/Pathnex/sample-java-app.git
+    - cd sample-java-app
+    - mvn clean compile
+
+maven-test:
+  stage: test
+  image: maven:3.8.1-jdk-17
+  script:
+    - cd sample-java-app
+    - mvn test
+
+maven-package:
+  stage: package
+  image: maven:3.8.1-jdk-17
+  script:
+    - cd sample-java-app
+    - mvn package
+
+
+
+===================================================================
+
+
+L2 Taks
+
+===================================================================
+
+
+---
+- name: Install and start Nginx 
+  hosts: all
+  become: yes
+
+  tasks:
+    - name: Install nginx
+      yum:
+        name: nginx
+        state: present
+
+    - name: Enable nginx
+      service:
+        name: nginx
+        state: started
+        enabled: yes
+
+---------------------------------------------------------------------
+
+
+provider "aws" {
+  region = "ap-south-1"
+}
+
+resource "aws_instance" "myinstance" {
+  ami           = "ami-skhfsi2231212"
+  instance_type = "r5.2xlarge"
+
+  tags = {
+    Name        = "challbazz_ka_instance"
+    Environment = "Dimension32"
+  }
+}
+
+
+------------------------------------------------------------------------
+
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: chalu-deployment
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: challbazz-app
+  template:
+    metadata:
+      labels:
+        app: challbazz-app
+      spec:
+         containers:
+            - name: app
+                image: nginx
+             ports:
+               -containerPort: 80
+
+--------------------------------------------------------------------------
+
+# Pull the latest Ubuntu image from Docker Hub
+docker pull ubuntu
+
+# List all downloaded images on your system
+docker images
+
+# List all containers (running + stopped)
+docker ps -a
+
+---------------------------------------------------------------------------
+
+FROM ubuntu:22.04
+
+RUN apt update
+
+CMD ["echo", "Hello challbazz"]
