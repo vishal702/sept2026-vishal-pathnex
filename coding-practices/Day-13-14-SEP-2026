@@ -1,1 +1,186 @@
+Day-13 L2 Tasks
 
+---Ansible
+
+- name: Setup Nginx on multiple nodes
+  hosts: all
+  become: yes
+  tasks:
+    - name: Install nginx
+      yum:
+        name: nginx
+        state: present
+
+    - name: Start nginx service
+      service:
+        name: nginx
+        state: started
+        enabled: yes
+
+
+---Terraform
+
+resource "aws_iam_policy" "example_policy" {
+  name        = "pathnex-policy"
+  description = "Policy for Pathnex application"
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Action   = "s3:ListBucket"
+        Effect   = "Allow"
+        Resource = "arn:aws:s3:::pathnex-bucket"
+      }
+    ]
+  })
+}
+
+
+---Kubernetes
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nginx-config
+data:
+  nginx.conf: |
+    server {
+      listen 80;
+      server_name localhost;
+
+      location / {
+        root /usr/share/nginx/html;
+        index index.html index.htm;
+      }
+    }
+
+
+secret.yml
+
+apiVersion: v1
+kind: Secret
+metadata:
+  name: nginx-secret
+type: Opaque
+data:
+  password: cGF0aG5leHBhc3M=   # base64 for "pathnexpass"
+
+
+Deployment.yml
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pathnex-nginx
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: pathnex-nginx
+  template:
+    metadata:
+      labels:
+        app: pathnex-nginx
+    spec:
+      containers:
+        - name: nginx
+          image: nginx:latest
+          ports:
+            - containerPort: 80
+          volumeMounts:
+            - name: nginx-config
+              mountPath: /etc/nginx/nginx.conf
+              subPath: nginx.conf
+          env:
+            - name: NGINX_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: nginx-secret
+                  key: password
+      volumes:
+        - name: nginx-config
+          configMap:
+            name: nginx-config
+        - name: nginx-secret
+          secret:
+            secretName: nginx-secret
+
+
+---Jenkins
+
+pipeline {
+    agent any
+
+    environment {
+        IMAGE_NAME = 'pathnex-app'
+    }
+
+    stages {
+        stage('Build') {
+            steps {
+                script {
+                  
+                    def branch = env.BRANCH_NAME ?: 'latest'
+                    docker.build("${IMAGE_NAME}:${branch}")
+                }
+            }
+        }
+
+        stage('Push') {
+            steps {
+                script {
+                    def branch = env.BRANCH_NAME ?: 'latest'
+                    docker.withRegistry('https://docker.io', 'docker-credentials') {
+                        docker.image("${IMAGE_NAME}:${branch}").push()
+                    }
+                }
+            }
+        }
+
+        stage('Deploy') {
+            steps {
+                script {
+                    sh 'kubectl apply -f kubernetes/deployment.yaml'
+                }
+            }
+        }
+    }
+}
+
+---GitLab
+
+stages:
+  - build
+  - push
+  - deploy
+
+variables:
+  IMAGE_NAME: pathnex-web-app
+  IMAGE_TAG: $CI_COMMIT_REF_NAME
+
+build:
+  stage: build
+  script:
+    - docker build -t $IMAGE_NAME:$IMAGE_TAG .
+
+push:
+  stage: push
+  script:
+    - docker login -u "$CI_REGISTRY_USER" -p "$CI_REGISTRY_PASSWORD"
+    - docker tag $IMAGE_NAME:$IMAGE_TAG $CI_REGISTRY_IMAGE/$IMAGE_NAME:$IMAGE_TAG
+    - docker push $CI_REGISTRY_IMAGE/$IMAGE_NAME:$IMAGE_TAG
+
+deploy:
+  stage: deploy
+  script:
+    - helm repo add pathnex https://charts.pathnex.com
+    - helm repo update
+    - helm upgrade --install pathnex-nginx pathnex/nginx-ingress \
+        --set image.repository=$CI_REGISTRY_IMAGE/$IMAGE_NAME \
+        --set image.tag=$IMAGE_TAG
+
+
+---Docker
+
+FROM ubuntu COPY pathnex-file.txt /opt/pathnex/files/ ADD pathnex.tar.gz /opt/pathnex/extracted/
