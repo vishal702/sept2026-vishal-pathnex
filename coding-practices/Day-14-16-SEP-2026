@@ -1,0 +1,111 @@
+Ansible Task
+
+- name: Setup Nginx with Reverse Proxy
+  hosts: all
+  become: yes
+  tasks:
+    - name: Install nginx
+      yum:
+        name: nginx
+        state: present
+    - name: Configure nginx as reverse proxy
+      template:
+        src: reverse-proxy.conf.j2
+        dest: /etc/nginx/conf.d/reverse-proxy.conf
+    - name: Restart nginx service
+      service:
+        name: nginx
+        state: restarted
+        enabled: yes
+
+Terraform Task — Create S3 Bucket with Versioning and Logging
+
+resource "aws_s3_bucket" "challbazz-Bucket" {
+  bucket = "challbazzkibucket"
+  versioning {
+    enabled = true
+  }
+
+  logging {
+    target_bucket = "challbazzkidusri"
+    target_prefix = "logs/"
+  }
+}
+
+ 
+Kubernetes Task — Ingress with Nginx Controller
+
+
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: challbazz-ingress
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+spec:
+  rules:
+    - host: pathnex.local
+      http:
+        paths:
+        - path: /
+          pathType: Prefix
+          backend:
+            service:
+              name: pathnex-service
+              port:
+                number: 80
+
+
+Jenkinsfile— Build, Test, and Deploy with Stages
+
+pipeline {
+    agent any
+    stages {
+        stage('Build') {
+            steps {
+                echo 'Building the app using docker'
+                docker.build('pathnex-web-app')
+            }
+        }
+        stage('Test') {
+            steps {
+                echo 'Running test cases given by developer'
+            }
+        }
+        stage('Deploy ') {
+            steps {
+                script {
+                    sh 'kubectl apply -f kubernetes/deployment.yaml'
+                }
+            }
+        }
+    }
+}
+
+GitLab CI/CD — Multi-Stage Deployment with Helm
+stages:
+  - build
+  - push
+  - deploy
+
+build:
+  stage: build
+  script:
+    - docker build -t challlbazz-web-app .
+
+push:
+  stage: push
+  script:
+    - docker login -u "$CI_REGISTRY_USER" -p "$CI_REGISTRY_PASSWORD"
+    - docker push challbazz-web-app
+
+deploy:
+  stage: deploy
+  script:
+    - helm upgrade --install pathnex-nginx pathnex/nginx-ingress
+
+
+Docker Task
+FROM ubuntu
+ENTRYPOINT ["echo"]  //main execution program
+CMD ["Hello Pathnex"] //default execution program
