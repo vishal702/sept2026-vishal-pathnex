@@ -1,0 +1,144 @@
+--Ansible Task
+
+- name: Create EC2 instances
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tasks:
+    - name: Launch EC2 instance in us-east-1
+      amazon.aws.ec2_instance:
+        name: challbazz-ec2
+        key_name: pathnex-key
+        region: us-east-1
+        instance_type: t2.micro
+        image_id: ami-0abcd1234abcd1234
+        wait: yes
+        count: 1
+        tags:
+          Environment: Training
+          Owner: challbazz
+
+
+---Terraform
+
+provider "aws" {
+  alias  = "us_east"
+  region = "us-east-1"
+}
+
+provider "aws" {
+  alias  = "us_west"
+  region = "us-west-1"
+}
+
+# VPC in us-east-1
+resource "aws_vpc" "us_east_vpc" {
+  provider   = aws.us_east
+  cidr_block = "10.0.0.0/16"
+}
+
+# VPC in us-west-1
+resource "aws_vpc" "us_west_vpc" {
+  provider   = aws.us_west
+  cidr_block = "10.1.0.0/16"
+}
+
+# EC2 in us-east-1
+resource "aws_instance" "pathnex_ec2_east" {
+  provider       = aws.us_east
+  ami            = "ami-0abcd1234abcd1234"
+  instance_type  = "t2.micro"
+  subnet_id      = aws_subnet.east_subnet.id
+  vpc_security_group_ids = [aws_security_group.allow_ssh_http_east.id]
+
+  tags = {
+    Name = "Pathnex-EC2-East"
+  }
+}
+
+# EC2 in us-west-1
+resource "aws_instance" "pathnex_ec2_west" {
+  provider       = aws.us_west
+  ami            = "ami-0abcd1234abcd1234"
+  instance_type  = "t2.micro"
+  subnet_id      = aws_subnet.west_subnet.id
+  vpc_security_group_ids = [aws_security_group.allow_ssh_http_west.id]
+
+  tags = {
+    Name = "Pathnex-EC2-West"
+  }
+}
+
+
+---Kubernetes
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: pathnex-service
+spec:
+  selector:
+    app: pathnex-app
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 8000
+  type: ClusterIP        
+
+
+---GitLab
+
+stages:
+  - build
+  - push
+  - deploy
+
+variables:
+  IMAGE_NAME: pathnex-web-app
+
+build:
+  stage: build
+  script:
+    - echo "Building Docker image..."
+    - docker build -t $IMAGE_NAME:$CI_COMMIT_REF_NAME .
+
+push:
+  stage: push
+  script:
+    - echo "Pushing Docker image..."
+    - docker login -u "$CI_REGISTRY_USER" -p "$CI_REGISTRY_PASSWORD" $CI_REGISTRY
+    - docker push $IMAGE_NAME:$CI_COMMIT_REF_NAME
+
+deploy:
+  stage: deploy
+  script:
+    - echo "Deploying to Kubernetes..."
+    - |
+      if [ "$CI_COMMIT_REF_NAME" == "main" ]; then
+        kubectl --context=us-east apply -f kubernetes/prod-deployment.yaml
+        kubectl --context=us-east apply -f kubernetes/service.yaml
+      elif [ "$CI_COMMIT_REF_NAME" == "staging" ]; then
+        kubectl --context=us-west apply -f kubernetes/staging-deployment.yaml
+        kubectl --context=us-west apply -f kubernetes/service.yaml
+      else
+        kubectl --context=us-west apply -f kubernetes/dev-deployment.yaml
+        kubectl --context=us-west apply -f kubernetes/service.yaml
+      fi
+
+
+---shell Script
+
+#!/bin/bash 
+echo "Hello Challbazz"
+
+---Docker
+
+FROM ubuntu:22.04
+
+WORKDIR /opt/pathnex/scripts
+
+COPY start.sh .
+RUN chmod +x start.sh
+
+CMD ["./start.sh"]
+
