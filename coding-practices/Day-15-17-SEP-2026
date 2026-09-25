@@ -1,0 +1,122 @@
+---Ansible Task
+
+name: Deploy web application to multiple hosts
+hosts: all
+become: yes
+tasks:
+  - name: Copy web app files
+    copy:
+      src: /path/to/web/app/
+      dest: /var/www/html/
+
+  - name: Start web app service
+    service:
+      name: apache2
+      state: started
+      enabled: yes
+
+---Terraform Task
+
+resource "aws_instance" "challbazz-ec2" {
+  ami           = "ami-0abcd1234abcd1234"
+  instance_type = "t2.micro"
+
+  vpc_security_group_ids = [aws_security_group.my_security_group.id]
+
+  tags = {
+    Name = "Challbazz-EC2"
+  }
+}
+
+
+----Jenkins
+
+pipeline {
+    agent any
+
+    environment {
+        IMAGE_NAME  = 'pathnex-web-app'
+        DEPLOY_ENV  = "${params.DEPLOY_ENV ?: 'dev'}"
+    }
+
+    parameters {
+        string(name: 'DEPLOY_ENV', defaultValue: 'dev', description: 'Deployment environment (dev/staging/prod)')
+    }
+
+    stages {
+        stage('Build') {
+            steps {
+                echo "Building Docker image for ${DEPLOY_ENV}..."
+                script {
+                    docker.build("${IMAGE_NAME}:${DEPLOY_ENV}")
+                }
+            }
+        }
+
+        stage('Test') {
+            steps {
+                echo "Running tests..."
+                
+            }
+        }
+
+        stage('Deploy to Kubernetes') {
+            steps {
+                script {
+                    if (DEPLOY_ENV == 'production') {
+                        sh 'kubectl apply -f kubernetes/prod-deployment.yaml'
+                    } else if (DEPLOY_ENV == 'staging') {
+                        sh 'kubectl apply -f kubernetes/staging-deployment.yaml'
+                    } else {
+                        sh 'kubectl apply -f kubernetes/dev-deployment.yaml'
+                    }
+                }
+            }
+        }
+    }
+}
+
+
+---GitLab
+
+stages:
+  - build
+  - push
+  - deploy
+
+variables:
+  IMAGE_NAME: pathnex-web-app
+
+build:
+  stage: build
+  script:
+    - echo "Building Docker image..."
+    - docker build -t $IMAGE_NAME:$CI_COMMIT_REF_NAME .
+
+push:
+  stage: push
+  script:
+    - echo "Pushing Docker image..."
+    - docker login -u "$CI_REGISTRY_USER" -p "$CI_REGISTRY_PASSWORD" $CI_REGISTRY
+    - docker push $IMAGE_NAME:$CI_COMMIT_REF_NAME
+
+deploy:
+  stage: deploy
+  script:
+    - echo "Deploying to Kubernetes..."
+    - |
+      if [ "$CI_COMMIT_REF_NAME" == "main" ]; then
+        kubectl apply -f kubernetes/prod-deployment.yaml
+      elif [ "$CI_COMMIT_REF_NAME" == "staging" ]; then
+        kubectl apply -f kubernetes/staging-deployment.yaml
+
+
+---Docker
+
+FROM ubuntu:22.04
+
+RUN apt-get update && \
+    apt-get install -y curl vim && \
+    rm -rf /var/lib/apt/lists/*
+
+CMD ["echo", "Hello Pathnex"]
