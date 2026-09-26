@@ -1,1 +1,112 @@
+---Ansible
+
+---
+- name: Install Prometheus for Monitoring
+  hosts: all
+  become: yes
+
+  tasks:
+    - name: Install Prometheus dependencies
+      yum:
+        name:
+          - prometheus
+          - prometheus-node-exporter
+        state: present
+
+    - name: Start Prometheus service
+      service:
+        name: prometheus
+        state: started
+        enabled: yes
+
+    - name: Start Node Exporter service
+      service:
+        name: prometheus-node-exporter
+        state: started
+        enabled: yes
+
+
+---Terraform
+
+resource "aws_cloudwatch_log_group" "my_log_group" {
+  name = "challbazz-log-group"
+}
+
+resource "aws_cloudwatch_log_stream" "my_log_stream" {
+  log_group_name = aws_cloudwatch_log_group.my_log_group.name
+  name           = "pathnex-log-stream"
+}
+
+
+---Kubernetes
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: fluentd
+spec:
+  selector:
+    app: fluentd
+  ports:
+    - protocol: TCP
+      port: 24224
+      targetPort: 24224
+
+
+---Jenkins
+
+pipeline {
+    agent any
+    stages {
+        stage('Build') {
+            steps {
+                echo 'Building Docker image...'
+                script {
+                    docker.build('pathnex-web-app')
+                }
+            }
+        }
+        stage('Test') {
+            steps {
+                echo 'Running tests...'
+            }
+        }
+        stage('Monitor Deployment') {
+            steps {
+                script {
+                    
+                    sh 'kubectl apply -f kubernetes/deployment.yaml'
+                    
+                    sh 'kubectl get pods --watch'
+                    
+                    sh 'kubectl exec $(kubectl get pod -l app=prometheus -o jsonpath="{.items[0].metadata.name}") -- curl http://localhost:9090/metrics'
+                }
+            }
+        }
+    }
+}
+
+
+---python app
+
+from flask import Flask
+
+app = Flask(__name__)   # use __name__ instead of name
+
+@app.route('/')
+def home():
+    return "Hello Pathnex"
+
+if __name__ == "__main__":
+    app.run(host='0.0.0.0', port=5000)
+
+
+---Docker File
+
+FROM python:3.11-slim
+WORKDIR /opt/pathnex/flask-app
+COPY . .
+RUN pip install --no-cache-dir flask
+EXPOSE 5000
+CMD ["python", "app.py"]
 
