@@ -1,0 +1,92 @@
+---Ansible
+
+- name: Deploy Docker Containers with Helm
+  hosts: localhost
+  tasks:
+    - name: Install Helm
+      command: curl https://raw.githubusercontent.com/helm/helm/master/scripts/get-helm-3 | bash
+    - name: Deploy microservices with Helm
+      command: helm install pathnex-app ./microservice-chart
+
+
+---Terraform 
+
+
+module "pathnex_vpc" {
+  source = "./vpc"
+}
+
+module "pathnex_instance" {
+  source = "./instance"
+  vpc_id = module.pathnex_vpc.vpc_id
+}
+
+output "instance_id" {
+  value = module.pathnex_instance.instance_id
+}
+
+
+---Kubernetes 
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pathnex-web-app
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: pathnex-web-app
+  template:
+    metadata:
+      labels:
+        app: pathnex-web-app
+    spec:
+      containers:
+        - name: nginx
+          image: nginx
+          ports:
+            - containerPort: 80
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: pathnex-web-app-hpa
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: pathnex-web-app
+  minReplicas: 2
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 80
+
+
+---Jenkinsfile 
+pipeline {
+    agent any
+    stages {
+        stage('Scale Up') {
+            steps {
+                echo 'Scaling '
+             
+            }
+        }
+        stage('Build') {
+            steps {
+                echo 'Build'
+            }
+        }
+        stage('Deploy') {
+            steps {
+                echo 'Deploying'
+            }
+        }
+    }
+}
+
+---Docker
+
+
+FROM nginx
+HEALTHCHECK CMD curl --fail http://localhost || exit 1
